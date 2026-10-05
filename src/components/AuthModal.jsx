@@ -5,13 +5,13 @@ import { GRADES } from '../data.js';
 
 const PHONE_RE = /^(\+40|0040|0)7\d{8}$/;
 
-export default function AuthModal({ onClose, accounts, onDone }) {
+export default function AuthModal({ onClose, accounts, onDone, initialRef = '' }) {
   const [step, setStep] = useState('phone');
   const [phone, setPhone] = useState('+40 7');
   const [code, setCode] = useState(['', '', '', '']);
   const [sent, setSent] = useState('');
   const [err, setErr] = useState('');
-  const [form, setForm] = useState({ name: '', school: '', grade: GRADES[2] });
+  const [form, setForm] = useState({ name: '', school: '', grade: GRADES[2], ref: initialRef });
   const refs = [useRef(), useRef(), useRef(), useRef()];
   const clean = phone.replace(/[\s.-]/g, '');
   const norm = clean.replace(/^(0040|0)/, '+40');
@@ -85,6 +85,8 @@ export default function AuthModal({ onClose, accounts, onDone }) {
             <input className="input" value={form.school} onChange={(e) => setForm({ ...form, school: e.target.value })} placeholder="ex. Colegiul Național „Sf. Sava”" /></label>
           <label className="block"><span className="label">Clasă</span>
             <select className="input" value={form.grade} onChange={(e) => setForm({ ...form, grade: e.target.value })}>{GRADES.map((g) => <option key={g}>{g}</option>)}</select></label>
+          <label className="block"><span className="label">Cod de recomandare (opțional)</span>
+            <input id="auth-ref" className="input font-mono uppercase" value={form.ref} onChange={(e) => setForm({ ...form, ref: e.target.value.trim() })} placeholder="ex. MARIA482" /></label>
           {err && <p className="text-sm font-medium text-rose-500">{err}</p>}
           <button className="btn-primary w-full">Creează contul</button>
         </form>

@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { BookCopy, ChevronLeft, ChevronRight, Eye, Layers, NotebookPen, Plus, RotateCcw, Shuffle, Sparkles, Trash2, Wand2, PenLine, Check, X } from 'lucide-react';
+import { useMemo, useRef, useState } from 'react';
+import { BookCopy, ChevronLeft, ChevronRight, Eye, Layers, NotebookPen, Plus, RotateCcw, Shuffle, Sparkles, Trash2, Wand2, PenLine, Check, X, UploadCloud, FileText, Loader2 } from 'lucide-react';
 import { SUBJECTS } from '../data.js';
 
 const SAMPLE = {
@@ -11,6 +11,62 @@ const SAMPLE = {
     { id: 4, front: 'Suma primilor n termeni ai unei progresii aritmetice', back: 'Sₙ = n(a₁ + aₙ) / 2' },
   ],
 };
+
+const SAMPLE_TEXT = {
+  Matematică: 'Derivata lui xⁿ: n·xⁿ⁻¹\nIntegrala lui 1/x: ln|x| + C\nDiscriminantul Δ: b² − 4ac\nTeorema lui Pitagora: a² + b² = c²\nLogaritmul produsului: log(ab) = log a + log b\nProgresia geometrică are raportul constant între termenii consecutivi.',
+  Fizică: 'Legea a II-a a lui Newton: F = m·a\nEnergia cinetică: Ec = mv²/2\nLegea lui Ohm: U = R·I\nPutere mecanică: P = L / t\nViteza luminii în vid: c ≈ 3·10⁸ m/s\nPrincipiul conservării energiei afirmă că energia nu se pierde, ci se transformă.',
+  Chimie: 'pH-ul unei soluții neutre: 7\nNumărul lui Avogadro: 6,022·10²³ mol⁻¹\nMasa molară a apei: 18 g/mol\nLegătura ionică: transfer de electroni între atomi\nAlcanii sunt hidrocarburi saturate cu formula generală CnH2n+2.',
+  Informatică: 'Complexitatea căutării binare: O(log n)\nStiva: structură de date LIFO\nCoada: structură de date FIFO\nRecursivitatea: o funcție care se apelează pe ea însăși\nGraful este o mulțime de noduri legate prin muchii.',
+  Biologie: 'Fotosinteza: procesul prin care plantele produc glucoză din lumină\nMitocondria: organitul în care se produce ATP\nADN: molecula care poartă informația ereditară\nMitoza: diviziunea care produce două celule identice\nRibozomii sunt organitele în care are loc sinteza proteinelor.',
+  'Limba Română': 'Epitetul: figură de stil care însoțește un substantiv\nMetafora: comparație fără termen de legătură\nLiviu Rebreanu: autorul romanului „Ion”\nMihai Eminescu: autorul poemului „Luceafărul”\nPersonificarea atribuie trăsături omenești unor lucruri sau animale.',
+};
+
+function UploadZone({ subject, onParsed, toast }) {
+  const [drag, setDrag] = useState(false);
+  const [file, setFile] = useState(null);
+  const [prog, setProg] = useState(0);
+  const [stage, setStage] = useState('');
+  const input = useRef();
+  const handle = async (f) => {
+    if (!f) return;
+    const ext = f.name.split('.').pop().toLowerCase();
+    if (!['pdf', 'txt', 'docx'].includes(ext)) return toast('Format neacceptat. Încarcă un fișier PDF, TXT sau DOCX.', 'info');
+    if (f.size > 10 * 1024 * 1024) return toast('Fișierul depășește 10 MB.', 'info');
+    setFile(f);
+    let real = '';
+    if (ext === 'txt') { try { real = (await f.text()).trim(); } catch { real = ''; } }
+    for (const [t, p] of [['Se citește fișierul...', 25], ['Se extrage textul...', 55], ['Se identifică definițiile și conceptele cheie...', 80], ['Se generează flashcard-urile...', 100]]) {
+      setStage(t); setProg(p); await new Promise((r) => setTimeout(r, 600));
+    }
+    setFile(null); setProg(0);
+    onParsed({ name: f.name.replace(/\.[^.]+$/, ''), text: real || SAMPLE_TEXT[subject], simulated: !real });
+    if (input.current) input.current.value = '';
+  };
+  return (
+    <div>
+      <span className="label">Încarcă notițe sau PDF</span>
+      <div onDragOver={(e) => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)}
+        onDrop={(e) => { e.preventDefault(); setDrag(false); handle(e.dataTransfer.files?.[0]); }}
+        onClick={() => !file && input.current?.click()} role="button" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && !file && input.current?.click()}
+        className={`cursor-pointer rounded-2xl border-2 border-dashed p-6 text-center transition ${drag ? 'scale-[1.01] border-blurple bg-blurple/10' : 'border-lav/70 hover:bg-lav/10'}`}>
+        <input ref={input} id="fc-file" type="file" accept=".pdf,.txt,.docx" className="hidden" onChange={(e) => handle(e.target.files?.[0])} />
+        {file ? (
+          <div className="mx-auto max-w-sm space-y-2">
+            <p className="flex items-center justify-center gap-2 text-sm font-bold"><FileText size={18} className="text-blurple" /> {file.name} <span className="font-normal text-ink/50">({Math.max(1, Math.round(file.size / 1024))} KB)</span></p>
+            <div className="h-2 overflow-hidden rounded-full bg-lav/30"><div className="h-full bg-blurple transition-all duration-500" style={{ width: `${prog}%` }} /></div>
+            <p className="flex items-center justify-center gap-2 text-xs text-ink/60 dark:text-slate-400"><Loader2 size={14} className="animate-spin" /> {stage}</p>
+          </div>
+        ) : (
+          <>
+            <UploadCloud size={32} className="mx-auto mb-2 text-blurple" />
+            <p className="text-sm font-bold">Trage fișierul aici sau apasă pentru a-l alege</p>
+            <p className="mt-1 text-xs text-ink/50 dark:text-slate-500">PDF, TXT sau DOCX · maxim 10 MB · flashcard-urile se generează automat</p>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
 
 // Generare automată: „termen: definiție” → față/verso, altfel propoziția devine text cu spațiu de completat
 export function generateCards(text) {
@@ -82,6 +138,7 @@ export default function Flashcards({ user, rooms, onSaveDecks, toast }) {
   const [src, setSrc] = useState('');
   const [text, setText] = useState('');
   const [preview, setPreview] = useState(null);
+  const [simNote, setSimNote] = useState(false);
 
   const saved = useMemo(() => {
     const list = [];
@@ -179,6 +236,12 @@ export default function Flashcards({ user, rooms, onSaveDecks, toast }) {
               <option value="">{saved.length ? 'Alege notițele unei sesiuni...' : 'Nu ai notițe salvate încă — scrie mai jos'}</option>
               {saved.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
             </select></label>
+          <UploadZone subject={subject} toast={toast} onParsed={({ name, text: t, simulated }) => {
+            const cards = generateCards(t);
+            setText(t); if (!title.trim()) setTitle(name); setSimNote(simulated);
+            if (!cards.length) return toast('Nu am găsit conținut potrivit în fișier.', 'info');
+            setPreview(cards); toast(`Am generat ${cards.length} flashcard-uri din fișier.`);
+          }} />
           <label className="block"><span className="label"><NotebookPen size={12} className="mr-1 inline" />Notițele tale</span>
             <textarea id="fc-text" className="input min-h-[140px] font-mono" value={text} onChange={(e) => { setText(e.target.value); setPreview(null); }}
               placeholder={'Scrie definiții, una pe rând:\nDerivata lui x²: 2x\nTeorema lui Pitagora: a² + b² = c²\nFotosinteza are loc în cloroplaste.'} /></label>
@@ -186,6 +249,7 @@ export default function Flashcards({ user, rooms, onSaveDecks, toast }) {
           {preview && (
             <div className="animate-fadeUp space-y-3 rounded-xl bg-app p-4 dark:bg-night">
               <p className="text-sm font-bold">{preview.length} carduri generate — elimină ce nu vrei:</p>
+              {simNote && <p className="rounded-lg bg-lav/20 px-3 py-2 text-xs">Demonstrație: textul din PDF/DOCX este simulat (în aplicația reală se extrage din document).</p>}
               <div className="max-h-72 space-y-2 overflow-y-auto">
                 {preview.map((c) => (
                   <div key={c.id} className="flex items-start gap-2 rounded-lg bg-white p-3 text-sm dark:bg-panel">

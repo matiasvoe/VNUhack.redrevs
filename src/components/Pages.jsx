@@ -2,6 +2,7 @@ import { ArrowDown, BadgeCheck, Coins, Crown, GraduationCap, Handshake, LogOut, 
 import { useState } from 'react';
 import { GRADES, SESSION_COST, SUBJECTS, SUBJECT_ICONS, PLANS } from '../data.js';
 import { Avatar, Stars } from '../utils.jsx';
+import { ReferralCard, TxHistory, WalletCard } from './Wallet.jsx';
 
 export function Hero({ onStart, onLogin, user }) {
   return (
@@ -89,7 +90,7 @@ function SkillPicker({ title, hint, value, onChange, verified, onVerify, mentor 
   );
 }
 
-export function ProfileView({ rating, user, onSave, onLogout, onLogin, onVerify, onPlans }) {
+export function ProfileView({ rating, user, onSave, onLogout, onLogin, onVerify, onPlans, onCashOut, onSimReferral, toast }) {
   const [d, setD] = useState(user ? { name: user.name, school: user.school, grade: user.grade, strong: user.strong, weak: user.weak } : null);
   const [saved, setSaved] = useState(false);
   if (!user) {
@@ -122,6 +123,11 @@ export function ProfileView({ rating, user, onSave, onLogout, onLogin, onVerify,
           <button onClick={onLogout} className="btn-ghost"><LogOut size={16} /> Deconectare</button>
         </div>
       </div>
+      <div className="grid gap-5 lg:grid-cols-2">
+        <WalletCard user={user} onPlans={onPlans} onCashOut={onCashOut} />
+        <ReferralCard user={user} onSim={onSimReferral} toast={toast} />
+      </div>
+      <TxHistory user={user} />
       <div className="card grid gap-4 p-5 sm:grid-cols-3">
         <label><span className="label">Nume</span><input className="input" value={d.name} onChange={(e) => setD({ ...d, name: e.target.value })} /></label>
         <label><span className="label">Liceu</span><input className="input" value={d.school} onChange={(e) => setD({ ...d, school: e.target.value })} /></label>

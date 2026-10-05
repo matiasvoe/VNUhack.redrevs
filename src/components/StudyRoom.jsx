@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Mic, MicOff, MonitorUp, MonitorOff, LogOut, Send, MessageSquare, NotebookPen, Megaphone, Crown, GraduationCap, Users, Loader2, CheckCircle2, Star } from 'lucide-react';
-import { CHAT_LINES, LEVELS, MAX_MEMBERS, SUBJECT_ICONS } from '../data.js';
+import { CHAT_LINES, LEVELS, MAX_MEMBERS, SUBJECT_ICONS, calcMentorEarnings } from '../data.js';
 import { Avatar, Stars, hhmm } from '../utils.jsx';
-import { RatingModal, ReportModal } from './Extras.jsx';
+import { EarningsModal, RatingModal, ReportModal } from './Extras.jsx';
 
 function Wave({ active }) {
   return (
@@ -56,7 +56,7 @@ function ScreenShare({ share, onStop }) {
   );
 }
 
-export default function StudyRoom({ room, now, user, onLeave, onAddBot, onUrgent, onRate, getRating, toast }) {
+export default function StudyRoom({ room, now, user, onLeave, onAddBot, onUrgent, onRate, onEarn, getRating, toast }) {
   const [muted, setMuted] = useState(false);
   const [share, setShare] = useState(null);
   const [tab, setTab] = useState('chat');
@@ -71,6 +71,8 @@ export default function StudyRoom({ room, now, user, onLeave, onAddBot, onUrgent
   const [rating, setRating] = useState(false);
   const [report, setReport] = useState(false);
   const askedRef = useRef(false);
+  const paidRef = useRef(false);
+  const [earn, setEarn] = useState(null);
   const over = started && (forceEnd || now.getTime() >= room.endsAt);
   const me = room.members.find((m) => m.id === 'me');
   const mentorsToRate = room.members.filter((m) => m.role === 'mentor' && m.id !== 'me');
@@ -109,6 +111,13 @@ export default function StudyRoom({ room, now, user, onLeave, onAddBot, onUrgent
     return () => clearInterval(t);
   }, [started, over, room.members]);
 
+  useEffect(() => {
+    if (over && !paidRef.current && me?.role === 'mentor') {
+      paidRef.current = true;
+      const e = calcMentorEarnings(room.members);
+      if (e.each > 0) { onEarn({ ...e, key: `${room.id}-${room.startedAt}`, note: `${room.subject} / ${room.grade}` }); setEarn(e); }
+    }
+  }, [over, me, room, onEarn]);
   useEffect(() => {
     if (over && !askedRef.current && me?.role === 'learner' && mentorsToRate.length) { askedRef.current = true; setRating(true); }
   }, [over, me, mentorsToRate.length]);
@@ -261,6 +270,7 @@ export default function StudyRoom({ room, now, user, onLeave, onAddBot, onUrgent
       </div>
       {rating && <RatingModal mentors={mentorsToRate} getRating={getRating} onClose={() => setRating(false)}
         onSubmit={(l) => { onRate(l); setRating(false); toast('Mulțumim pentru evaluare!'); }} />}
+      {earn && <EarningsModal data={earn} onClose={() => setEarn(null)} />}
       {report && <ReportModal members={room.members} onClose={() => setReport(false)}
         onSubmit={() => { setReport(false); toast('Raportul a fost trimis echipei de moderare. Mulțumim!'); }} />}
     </div>

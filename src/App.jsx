@@ -2,14 +2,15 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { CheckCircle2, Info } from 'lucide-react';
 import Header from './components/Header.jsx';
 import Flashcards from './components/Flashcards.jsx';
-import { PaywallModal } from './components/Extras.jsx';
+import { CreateSessionModal, PaywallModal } from './components/Extras.jsx';
+import { CashoutModal } from './components/Wallet.jsx';
 import Lobby from './components/Lobby.jsx';
 import AuthModal from './components/AuthModal.jsx';
 import PlansModal from './components/PlansModal.jsx';
 import QuizModal from './components/QuizModal.jsx';
 import StudyRoom from './components/StudyRoom.jsx';
 import { AboutView, Hero, ProfileView } from './components/Pages.jsx';
-import { MAX_MEMBERS, SESSION_COST, buildRooms, makeBot, seedRating } from './data.js';
+import { GRADES, LEVELS, MAX_MEMBERS, REFERRAL_COUPON, SESSION_COST, buildRooms, makeBot, seedRating } from './data.js';
 import { cycleEnd, entryInfo, useLocalStorage, useNow } from './utils.jsx';
 
 export default function App() {
@@ -32,6 +33,7 @@ export default function App() {
   const [ratings, setRatings] = useLocalStorage('akademos_ratings', {});
   const [modal, setModal] = useState(null); // {type:'auth'|'plans'|'quiz'|'paywall', ...}
   const timers = useRef([]);
+  const [pendingRef, setPendingRef] = useState('');
 
   const user = phone ? accounts[phone] : null;
   const { open } = entryInfo(now, demo);
@@ -46,13 +48,50 @@ export default function App() {
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 4200);
   }, []);
 
+  const genCode = (name, taken) => {
+    const base = (name || 'USER').split(' ')[0].normalize('NFD').replace(/[^A-Za-z]/g, '').toUpperCase().slice(0, 8) || 'USER';
+    let c; do { c = base + Math.floor(100 + Math.random() * 900); } while (taken.includes(c));
+    return c;
+  };
+
   const updateUser = (patch) => setAccounts((a) => ({ ...a, [phone]: { ...a[phone], ...(typeof patch === 'function' ? patch(a[phone]) : patch) } }));
+
+  // ---------- Recomandări ----------
+  const newCoupon = () => ({ id: `c${Date.now()}${Math.random()}`, pct: REFERRAL_COUPON.pct, label: REFERRAL_COUPON.label, used: false });
+  const rewardReferrer = (acc, code, friend) => {
+    const entry = Object.entries(acc).find(([, u]) => u.refCode && u.refCode === code);
+    if (!entry) return acc;
+    const [key, u] = entry;
+    return { ...acc, [key]: { ...u, referrals: [{ id: Math.random(), name: friend, ts: Date.now() }, ...(u.referrals || [])], coupons: [...(u.coupons || []), newCoupon()] } };
+  };
+  const simReferral = () => {
+    const friends = ['Andrei M.', 'Ioana P.', 'Radu T.', 'Elena V.', 'Matei C.'];
+    const name = friends[Math.floor(Math.random() * friends.length)];
+    setAccounts((a) => rewardReferrer(a, user.refCode, name));
+    toast(`${name} s-a înregistrat cu linkul tău! Ai primit cuponul „${REFERRAL_COUPON.label}”.`);
+  };
+  useEffect(() => {
+    const m = window.location.pathname.match(/\/ref\/([A-Za-z0-9]+)/) || window.location.search.match(/[?&]ref=([A-Za-z0-9]+)/);
+    if (m) { setPendingRef(m[1].toUpperCase()); if (!phone) setModal({ type: 'auth' }); }
+  }, []);
+  // completează câmpurile noi pentru conturile create înainte de aceste funcții
+  useEffect(() => {
+    if (user && user.refCode === undefined) {
+      updateUser((u) => ({ refCode: genCode(u.name, Object.values(accounts).map((x) => x.refCode)), referrals: [], coupons: [], earned: 0, tx: [] }));
+    }
+  }, [user]);
 
   // ---------- Autentificare ----------
   const onAuth = (ph, form) => {
     if (form) {
-      setAccounts((a) => ({ ...a, [ph]: { phone: ph, ...form, credits: 50, plan: 'free', strong: {}, weak: {}, verified: [] } }));
-      toast('Cont creat! Ai primit 50 de credite gratuite.');
+      const { ref, ...profile } = form;
+      setAccounts((a) => {
+        const created = { ...a, [ph]: { phone: ph, ...profile, credits: 50, plan: 'free', strong: {}, weak: {}, verified: [], decks: undefined, earned: 0, tx: [], referrals: [], coupons: [], refCode: genCode(profile.name, Object.values(a).map((x) => x.refCode)) } };
+        const code = (ref || '').toUpperCase();
+        return code && !Object.values(a).some((u) => u.refCode === code && u.phone === ph) ? rewardReferrer(created, code, profile.name) : created;
+      });
+      toast(ref ? 'Cont creat cu cod de recomandare! Ai primit 50 de credite gratuite.' : 'Cont creat! Ai primit 50 de credite gratuite.');
+      setPendingRef('');
     } else toast('Bine ai revenit!');
     setPhone(ph);
     setModal(null);
@@ -66,11 +105,34 @@ export default function App() {
       if (r.id !== roomId || r.startedAt || r.members.length >= MAX_MEMBERS) return r;
       const mentors = r.members.filter((m) => m.role === 'mentor').length;
       const learners = r.members.length - mentors;
-      const role = forceRole || (mentors === 0 ? 'mentor' : learners >= 3 && mentors < 2 ? 'mentor' : 'learner');
+      const role = forceRole || (r.hosted ? 'learner' : mentors === 0 ? 'mentor' : learners >= 3 && mentors < 2 ? 'mentor' : 'learner');
       const members = [...r.members, makeBot(role, r.grade, r.members.map((m) => m.name))];
       return members.length >= MAX_MEMBERS ? startRoom({ ...r, members }, vnow()) : { ...r, members };
     }));
   }, []);
+
+  // Mod demonstrație în afara ferestrei reale: sincronizăm ceasul global cu începutul unui ciclu nou
+  const syncDemoClock = () => {
+    if (!entryInfo(new Date(vnow()), false).open) {
+      const d = new Date();
+      setOff(2000 - ((d.getMinutes() % 30) * 60000 + d.getSeconds() * 1000 + d.getMilliseconds()));
+      toast('Mod demonstrație: ceasul global a fost resetat la începutul unui ciclu nou.', 'info');
+    }
+  };
+
+  const createRoom = ({ subject, grade, level }) => {
+    if (activeRoomId) { toast('Ești deja într-o cameră.', 'info'); return; }
+    if (!open) { toast('Poți crea sesiuni doar în fereastra de intrare (:00–:05 / :30–:35).', 'info'); return; }
+    if (!user.verified.includes(subject)) { toast('Trebuie să fii Mentor Verificat la această materie.', 'info'); return; }
+    syncDemoClock();
+    const me = { id: 'me', name: user.name, school: user.school, grade: user.grade, role: 'mentor' };
+    const id = `h${Date.now()}`;
+    setRooms((rs) => [{ id, subject, grade, level, members: [me], startedAt: null, endsAt: null, hosted: true, hostId: 'me' }, ...rs]);
+    setActiveRoomId(id);
+    setModal(null);
+    setView('room');
+    toast('Sesiunea ta live a fost creată. Elevii se vor alătura în curând.');
+  };
 
   const joinRoom = (room) => {
     if (!user) { setModal({ type: 'auth' }); toast('Conectează-te pentru a intra într-o cameră.', 'info'); return; }
@@ -84,12 +146,7 @@ export default function App() {
     if (lvl >= 7 && !mentor) toast('Ai nivel de mentor, dar nu ești verificat. Intri ca elev — fă Testul de Mentorat din profil.', 'info');
     const me = { id: 'me', name: user.name, school: user.school, grade: user.grade, role: mentor ? 'mentor' : 'learner' };
     updateUser((u) => ({ credits: u.credits - SESSION_COST }));
-    // Mod demonstrație în afara ferestrei reale: sincronizăm ceasul global cu începutul unui ciclu nou
-    if (!entryInfo(new Date(vnow()), false).open) {
-      const d = new Date();
-      setOff(2000 - ((d.getMinutes() % 30) * 60000 + d.getSeconds() * 1000 + d.getMilliseconds()));
-      toast('Mod demonstrație: ceasul global a fost resetat la începutul unui ciclu nou.', 'info');
-    }
+    syncDemoClock();
     const ts = vnow();
     setRooms((rs) => rs.map((r) => {
       if (r.id !== room.id) return r;
@@ -103,9 +160,11 @@ export default function App() {
 
   function leaveRoom(silent) {
     if (!activeRoom) return;
-    const refund = !activeRoom.startedAt;
+    const hosted = activeRoom.hostId === 'me';
+    const refund = !activeRoom.startedAt && !hosted;
     const ended = activeRoom.endsAt && vnow() >= activeRoom.endsAt;
-    setRooms((rs) => rs.map((r) => {
+    if (hosted) setRooms((rs) => rs.filter((r) => r.id !== activeRoom.id));
+    else setRooms((rs) => rs.map((r) => {
       if (r.id !== activeRoom.id) return r;
       const members = r.members.filter((m) => m.id !== 'me');
       return ended || members.length === 0 ? { ...r, members: [], startedAt: null, endsAt: null } : { ...r, members };
@@ -130,7 +189,7 @@ export default function App() {
   const t = now.getTime();
   useEffect(() => {
     setRooms((rs) => (rs.some((r) => r.endsAt && t >= r.endsAt && r.id !== activeRoomId)
-      ? rs.map((r) => (r.endsAt && t >= r.endsAt && r.id !== activeRoomId ? { ...r, members: [], startedAt: null, endsAt: null } : r))
+      ? rs.filter((r) => !(r.hosted && r.endsAt && t >= r.endsAt && r.id !== activeRoomId)).map((r) => (r.endsAt && t >= r.endsAt && r.id !== activeRoomId ? { ...r, members: [], startedAt: null, endsAt: null } : r))
       : rs));
   }, [t, activeRoomId]);
 
@@ -168,7 +227,22 @@ export default function App() {
   };
 
   // ---------- Credite & abonamente ----------
-  const choosePlan = (p) => { updateUser((u) => ({ plan: p.id, credits: u.credits + p.credits })); setModal(null); toast(`Plan ${p.name} activat: +${p.credits} credite.`); };
+  const coupon = (user?.coupons || []).find((c) => !c.used);
+  const choosePlan = (p) => {
+    const useCoupon = coupon && p.id === 'pro';
+    updateUser((u) => ({ plan: p.id, credits: u.credits + p.credits, coupons: useCoupon ? u.coupons.map((c) => (c.id === coupon.id ? { ...c, used: true } : c)) : u.coupons }));
+    setModal(null);
+    toast(useCoupon ? `Plan Pro activat cu ${coupon.label}: +${p.credits} credite.` : `Plan ${p.name} activat: +${p.credits} credite.`);
+  };
+  const earn = useCallback((e) => updateUser((u) => ((u.tx || []).some((x) => x.key === e.key) ? {} : {
+    earned: (u.earned || 0) + e.each,
+    tx: [{ id: `t${Date.now()}`, key: e.key, type: 'earn', credits: e.each, note: `${e.note} · ${e.students} elevi`, ts: Date.now() }, ...(u.tx || [])],
+  })), [phone]);
+  const cashOut = ({ credits, iban }) => {
+    updateUser((u) => ({ earned: u.earned - credits, tx: [{ id: `t${Date.now()}`, type: 'cashout', credits, note: `IBAN •••• ${iban.slice(-4)}`, ts: Date.now() }, ...(u.tx || [])] }));
+    setModal(null);
+    toast(`Retragere înregistrată: ${credits} credite → ${(credits * 0.2).toFixed(2).replace('.', ',')} RON.`);
+  };
   const buyPack = (c) => { updateUser((u) => ({ credits: u.credits + c.credits })); setModal(null); toast(`Ai cumpărat ${c.credits} credite.`); };
 
   const onQuizPass = useCallback((subject) => {
@@ -187,7 +261,8 @@ export default function App() {
         {view === 'rooms' && (
           <>
             <Hero user={user} onStart={goRooms} onLogin={() => setModal({ type: 'auth' })} />
-            <Lobby rooms={rooms} alerts={alerts} now={now} demo={demo} onJoin={joinRoom} activeRoomId={activeRoomId} user={user} getRating={getRating} />
+            <Lobby rooms={rooms} alerts={alerts} now={now} demo={demo} onJoin={joinRoom} activeRoomId={activeRoomId} user={user} getRating={getRating}
+              onCreate={() => setModal({ type: 'create' })} onGoProfile={() => setView('profile')} />
           </>
         )}
         {view === 'flashcards' && isPaid && <Flashcards user={user} rooms={rooms} onSaveDecks={saveDecks} toast={toast} />}
@@ -195,17 +270,20 @@ export default function App() {
         {view === 'profile' && (
           <ProfileView key={phone} user={user} rating={user ? getRating(user.name) : null} onLogin={() => setModal({ type: 'auth' })} onLogout={logout}
             onPlans={() => setModal({ type: 'plans' })} onVerify={(s) => setModal({ type: 'quiz', subject: s })}
-            onSave={(d) => { updateUser(d); toast('Profilul a fost salvat.'); }} />
+            onSave={(d) => { updateUser(d); toast('Profilul a fost salvat.'); }}
+            onCashOut={() => setModal({ type: 'cashout' })} onSimReferral={simReferral} toast={toast} />
         )}
         {view === 'room' && activeRoom && user && (
-          <StudyRoom key={activeRoom.id} room={activeRoom} now={now} user={user} onLeave={() => leaveRoom()} onAddBot={addBot} onUrgent={urgent} onRate={rate} getRating={getRating} toast={toast} />
+          <StudyRoom key={activeRoom.id} room={activeRoom} now={now} user={user} onLeave={() => leaveRoom()} onAddBot={addBot} onUrgent={urgent} onRate={rate} onEarn={earn} getRating={getRating} toast={toast} />
         )}
       </main>
       <footer className="py-8 text-center text-xs text-ink/50 dark:text-slate-500">© 2026 Akademos · Schimb de cunoștințe între elevi</footer>
 
-      {modal?.type === 'auth' && <AuthModal accounts={accounts} onClose={() => setModal(null)} onDone={onAuth} />}
-      {modal?.type === 'plans' && user && <PlansModal user={user} reason={modal.reason} onClose={() => setModal(null)} onPlan={choosePlan} onPack={buyPack} />}
+      {modal?.type === 'auth' && <AuthModal initialRef={pendingRef} accounts={accounts} onClose={() => setModal(null)} onDone={onAuth} />}
+      {modal?.type === 'plans' && user && <PlansModal user={user} coupon={coupon} reason={modal.reason} onClose={() => setModal(null)} onPlan={choosePlan} onPack={buyPack} />}
       {modal?.type === 'paywall' && <PaywallModal onClose={() => setModal(null)} onUpgrade={() => setModal({ type: 'plans' })} />}
+      {modal?.type === 'create' && user && <CreateSessionModal user={user} levels={LEVELS} grades={GRADES} onClose={() => setModal(null)} onCreate={createRoom} />}
+      {modal?.type === 'cashout' && user && <CashoutModal user={user} onClose={() => setModal(null)} onSubmit={cashOut} />}
       {modal?.type === 'quiz' && <QuizModal subject={modal.subject} onClose={() => setModal(null)} onPass={onQuizPass} />}
 
       <div className="pointer-events-none fixed bottom-4 right-4 z-[60] flex w-[min(92vw,360px)] flex-col gap-2">

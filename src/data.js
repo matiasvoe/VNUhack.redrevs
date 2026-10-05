@@ -161,3 +161,20 @@ export const ADS = [
   { tag: 'Tehnologie', title: 'Laptopuri pentru elevi de la 1.999 lei', text: 'Reducere specială cu legitimația de elev. Livrare gratuită în toată țara.', cta: 'Alege laptopul', grad: 'from-sky-500 to-blurple' },
   { tag: 'Bootcamp', title: 'Bootcamp Web & Python — 6 săptămâni', text: 'Învață programare practic, cu mentori din industrie. Prima lecție gratuită.', cta: 'Înscrie-te', grad: 'from-emerald-500 to-teal-600' },
 ];
+
+// ---------- Portofel, venituri mentori, recomandări ----------
+export const CREDIT_RON_RATE = 0.2; // 100 credite = 20 RON
+export const MIN_CASHOUT = 100;
+export const COMMISSION = 0.5;
+export const REFERRAL_COUPON = { pct: 30, label: '30% Reducere la prima lună de Pro' };
+export const toRon = (credits) => (credits * CREDIT_RON_RATE).toFixed(2).replace('.', ',');
+
+// Câștig mentori: (elevi × 25) → 50% comision Akademos → restul împărțit egal între mentori
+export function calcMentorEarnings(members) {
+  const students = members.filter((m) => m.role !== 'mentor').length;
+  const mentors = Math.max(1, members.filter((m) => m.role === 'mentor').length);
+  const pool = students * SESSION_COST;
+  const fee = pool * COMMISSION;
+  const mentorPool = pool - fee;
+  return { students, mentors, pool, fee, mentorPool, each: Math.floor(mentorPool / mentors) };
+}

@@ -77,3 +77,49 @@ export function ReportModal({ members, onClose, onSubmit }) {
     </Modal>
   );
 }
+
+export function EarningsModal({ data, onClose }) {
+  const rows = [
+    [`Elevi în cameră: ${data.students} × 25 credite`, `${data.pool} cr.`],
+    ['Comision Akademos (50%)', `− ${data.fee} cr.`],
+    ['Fond total pentru mentori', `${data.mentorPool} cr.`],
+    [`Împărțit egal la ${data.mentors} ${data.mentors === 1 ? 'mentor' : 'mentori'}`, `${data.each} cr. / mentor`],
+  ];
+  return (
+    <Modal title="Sesiune încheiată — câștigul tău" onClose={onClose}>
+      <div className="space-y-4">
+        <div className="rounded-2xl bg-ink p-5 text-center text-white">
+          <p className="text-xs font-semibold uppercase tracking-wide text-lav">Credite Câștigate</p>
+          <p className="animate-pop text-5xl font-extrabold tabular-nums">+{data.each}</p>
+          <p className="text-xs text-white/60">adăugate în portofelul tău</p>
+        </div>
+        <ul className="divide-y divide-lav/30 rounded-xl border border-lav/40 text-sm dark:divide-white/10 dark:border-white/10">
+          {rows.map(([a, b]) => <li key={a} className="flex justify-between gap-3 px-4 py-2.5"><span>{a}</span><b className="shrink-0 tabular-nums">{b}</b></li>)}
+        </ul>
+        <p className="text-xs text-ink/50 dark:text-slate-500">Sumele fracționare se rotunjesc în jos. Poți retrage creditele câștigate din Profil → Portofel.</p>
+        <button onClick={onClose} className="btn-primary w-full">Am înțeles</button>
+      </div>
+    </Modal>
+  );
+}
+
+export function CreateSessionModal({ user, levels, grades, onClose, onCreate }) {
+  const [subject, setSubject] = useState(user.verified[0]);
+  const [grade, setGrade] = useState(user.grade);
+  const [level, setLevel] = useState(2);
+  return (
+    <Modal title="Creează Sesiune Live ca Mentor" onClose={onClose}>
+      <div className="space-y-4">
+        <p className="text-sm text-ink/70 dark:text-slate-300">Vei găzdui o sesiune oficială pentru materia la care ești <b>Mentor Verificat</b>. Nu plătești credite: primești 50% din creditele elevilor care intră.</p>
+        <label className="block"><span className="label">Materie (verificată)</span>
+          <select id="cs-subject" className="input" value={subject} onChange={(e) => setSubject(e.target.value)}>{user.verified.map((s) => <option key={s}>{s}</option>)}</select></label>
+        <label className="block"><span className="label">Clasă</span>
+          <select id="cs-grade" className="input" value={grade} onChange={(e) => setGrade(e.target.value)}>{grades.map((g) => <option key={g}>{g}</option>)}</select></label>
+        <label className="block"><span className="label">Nivel de dificultate</span>
+          <select id="cs-level" className="input" value={level} onChange={(e) => setLevel(+e.target.value)}>{levels.map((l) => <option key={l.id} value={l.id}>Nivel {l.id}: {l.label}</option>)}</select></label>
+        <div className="flex gap-2"><button onClick={onClose} className="btn-ghost flex-1">Anulează</button>
+          <button onClick={() => onCreate({ subject, grade, level })} className="btn-primary flex-1"><Crown size={16} /> Creează Sesiunea</button></div>
+      </div>
+    </Modal>
+  );
+}

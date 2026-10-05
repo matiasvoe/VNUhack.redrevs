@@ -1,8 +1,8 @@
-import { Check, Coins, Zap } from 'lucide-react';
+import { Check, Coins, Ticket, Zap } from 'lucide-react';
 import Modal from './Modal.jsx';
 import { CREDIT_PACKS, PLANS, SESSION_COST } from '../data.js';
 
-export default function PlansModal({ onClose, user, onPlan, onPack, reason }) {
+export default function PlansModal({ onClose, user, onPlan, onPack, reason, coupon }) {
   return (
     <Modal title="Reîncărcare / Planuri Abonament" onClose={onClose} wide>
       {reason && (
@@ -14,17 +14,20 @@ export default function PlansModal({ onClose, user, onPlan, onPack, reason }) {
       <div className="grid gap-4 md:grid-cols-3">
         {PLANS.map((p) => {
           const cur = user?.plan === p.id;
+          const disc = coupon && p.id === 'pro' && !cur;
+          const price = disc ? +(p.price * (1 - coupon.pct / 100)).toFixed(0) : p.price;
           return (
             <div key={p.id} className={`relative flex flex-col rounded-2xl border-2 p-5 transition hover:-translate-y-1 ${p.popular ? 'border-blurple shadow-lg shadow-blurple/20' : 'border-lav/50 dark:border-white/10'}`}>
               {p.popular && <span className="badge absolute -top-3 left-5 bg-blurple text-white"><Zap size={11} /> Cel mai ales</span>}
               <h3 className="text-lg font-extrabold">Plan {p.name}</h3>
-              <p className="mt-1"><span className="text-3xl font-extrabold">{p.price} lei</span><span className="text-sm text-ink/60 dark:text-slate-400"> /lună</span></p>
+              <p className="mt-1">{disc && <span className="mr-2 text-lg text-ink/40 line-through dark:text-slate-500">{p.price} lei</span>}<span className="text-3xl font-extrabold">{price} lei</span><span className="text-sm text-ink/60 dark:text-slate-400"> /lună{disc ? ' · prima lună' : ''}</span></p>
+              {disc && <p className="mt-1 flex animate-pop items-center gap-1 rounded-lg bg-emerald-500/15 px-2 py-1 text-xs font-bold text-emerald-700 dark:text-emerald-300"><Ticket size={12} /> {coupon.label} · aplicat automat</p>}
               <p className="mt-1 text-sm font-bold text-blurple">{p.credits} credite / lună</p>
               <ul className="my-4 flex-1 space-y-2 text-sm">
                 {p.perks.map((k) => <li key={k} className="flex gap-2"><Check size={16} className="mt-0.5 shrink-0 text-emerald-500" />{k}</li>)}
               </ul>
               <button disabled={cur} onClick={() => onPlan(p)} className={p.popular ? 'btn-primary' : 'btn-ghost'}>
-                {cur ? 'Planul tău actual' : p.price === 0 ? 'Alege Free' : `Alege ${p.name}`}
+                {cur ? 'Planul tău actual' : p.price === 0 ? 'Alege Free' : disc ? `Alege ${p.name} · ${price} lei` : `Alege ${p.name}`}
               </button>
             </div>
           );

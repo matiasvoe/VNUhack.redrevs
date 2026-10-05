@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Users, Lock, Megaphone, Crown, GraduationCap, ArrowRight, Filter, ExternalLink, Sparkles } from 'lucide-react';
+import { Users, Lock, PlusCircle, BadgeCheck, Megaphone, Crown, GraduationCap, ArrowRight, Filter, ExternalLink, Sparkles } from 'lucide-react';
 import { ADS, GRADES, LEVELS, MAX_MEMBERS, SUBJECTS, SUBJECT_ICONS, SESSION_COST } from '../data.js';
 import { Avatar, Stars, entryInfo } from '../utils.jsx';
 
@@ -42,6 +42,7 @@ function RoomCard({ room, open, mine, onJoin, urgent, getRating }) {
       <div className="flex items-start gap-3">
         <div className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${locked ? 'bg-slate-200 text-slate-500 dark:bg-white/10' : 'bg-blurple text-white'}`}><Icon size={22} /></div>
         <div className="min-w-0 flex-1">
+          {room.hosted && <span className="badge mb-1 bg-amber-400/20 text-amber-700 dark:text-amber-300"><Crown size={11} /> Sesiune oficială</span>}
           <h3 className="font-bold leading-tight">{room.subject} / {room.grade} / {lvl.label}</h3>
           <p className="mt-0.5 text-xs text-ink/60 dark:text-slate-400">{lvl.desc}</p>
         </div>
@@ -96,7 +97,7 @@ const Select = ({ label, value, onChange, options }) => (
   </label>
 );
 
-export default function Lobby({ rooms, alerts, now, demo, onJoin, activeRoomId, user, getRating }) {
+export default function Lobby({ rooms, alerts, now, demo, onJoin, activeRoomId, user, getRating, onCreate, onGoProfile }) {
   const [f, setF] = useState({ subject: '', grade: '', level: '' });
   const [onlyOpen, setOnlyOpen] = useState(false);
   const { open } = entryInfo(now, demo);
@@ -128,6 +129,26 @@ export default function Lobby({ rooms, alerts, now, demo, onJoin, activeRoomId, 
               </div>
             );
           })}
+        </div>
+      )}
+
+      {user && (
+        <div className="card flex flex-wrap items-center gap-3 p-4">
+          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-ink text-lav"><Crown size={22} /></div>
+          {user.verified.length > 0 ? (
+            <>
+              <div className="min-w-0 flex-1">
+                <p className="font-bold">Ești Mentor Verificat</p>
+                <p className="flex flex-wrap gap-1.5 text-xs">{user.verified.map((v) => <span key={v} className="badge bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"><BadgeCheck size={11} /> {v}</span>)}</p>
+              </div>
+              <button onClick={onCreate} disabled={!open || !!activeRoomId} className="btn-primary"
+                title={open ? 'Găzduiește o sesiune oficială' : 'Disponibil doar în fereastra de intrare (:00–:05 / :30–:35)'}>
+                <PlusCircle size={16} /> Creează Sesiune Live ca Mentor</button>
+              {!open && <p className="w-full text-xs font-semibold text-orange-600 dark:text-orange-300">⏳ Poți crea sesiuni doar în fereastra de intrare (:00–:05 / :30–:35).</p>}
+            </>
+          ) : (
+            <p className="min-w-0 flex-1 text-sm text-ink/70 dark:text-slate-300">Vrei să găzduiești sesiuni și să câștigi credite? Treci <b>Testul de Mentorat</b> la o materie din <button onClick={onGoProfile} className="font-bold text-blurple underline">profilul tău</button>.</p>
+          )}
         </div>
       )}
 
