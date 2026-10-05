@@ -42,7 +42,7 @@ function SimulatedScreen() {
 
 function ScreenShare({ share, onStop }) {
   const v = useRef();
-  useEffect(() => { if (v.current && share.stream) v.current.srcObject = share.stream; }, [share]);
+  useEffect(() => { if (v.current && share.stream) { v.current.srcObject = share.stream; v.current.play?.().catch(() => {}); } }, [share]);
   return (
     <div className="card animate-pop overflow-hidden p-3">
       <div className="mb-2 flex items-center justify-between text-sm font-bold">
@@ -125,15 +125,18 @@ export default function StudyRoom({ room, now, user, onLeave, onAddBot, onUrgent
   const stopShare = () => { share?.stream?.getTracks().forEach((t) => t.stop()); setShare(null); };
   const startShare = async () => {
     if (share) return stopShare();
+    const fallback = (why) => { setShare({ stream: null }); toast(`${why} Afișăm o prezentare simulată a ecranului.`, 'info'); };
+    if (!window.isSecureContext || !navigator.mediaDevices?.getDisplayMedia) return fallback('Browserul nu permite partajarea nativă aici.');
     try {
-      if (!navigator.mediaDevices?.getDisplayMedia) throw new Error('indisponibil');
-      const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+      const stream = await Promise.race([
+        navigator.mediaDevices.getDisplayMedia({ video: true }),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 20000)),
+      ]);
       stream.getVideoTracks()[0].addEventListener('ended', () => setShare(null));
       setShare({ stream });
       toast('Partajezi ecranul cu grupul.');
-    } catch {
-      setShare({ stream: null });
-      toast('Partajarea nativă nu este disponibilă — afișăm o prezentare simulată.');
+    } catch (e) {
+      fallback(e?.name === 'NotAllowedError' ? 'Partajarea a fost refuzată sau blocată de browser.' : 'Partajarea nu a putut porni.');
     }
   };
   const urgent = () => { onUrgent(room); setUrgentSent(true); };
@@ -200,11 +203,11 @@ export default function StudyRoom({ room, now, user, onLeave, onAddBot, onUrgent
 
           <div className="card flex flex-wrap items-center justify-center gap-3 p-4">
             <button onClick={() => setMuted(!muted)} className={muted ? 'btn-danger' : 'btn-ghost'}>{muted ? <MicOff size={18} /> : <Mic size={18} />} {muted ? 'Activează Microfonul' : 'Mute Microfon'}</button>
-            <button onClick={startShare} className={share ? 'btn-primary' : 'btn-ghost'} disabled={!started || over}>{share ? <MonitorOff size={18} /> : <MonitorUp size={18} />} {share ? 'Oprește Partajarea' : 'Partajează Ecranul'}</button>
+            <button onClick={startShare} className={share ? 'btn-primary' : 'btn-ghost'} disabled={over}>{share ? <MonitorOff size={18} /> : <MonitorUp size={18} />} {share ? 'Oprește Partajarea' : 'Partajează Ecranul'}</button>
             <button onClick={() => setReport(true)} className="btn bg-amber-400 font-extrabold text-ink shadow-md shadow-amber-400/30 hover:bg-amber-300">🚨 Raportează</button>
             <button onClick={onLeave} className="btn-danger"><LogOut size={18} /> Părăsește Sesiunea</button>
           </div>
-          {!started && <p className="text-center text-xs text-ink/50 dark:text-slate-500">Partajarea ecranului se activează la începutul sesiunii. Dacă pleci acum, creditele îți sunt returnate.</p>}
+          {!started && <p className="text-center text-xs text-ink/50 dark:text-slate-500">Dacă pleci înainte să înceapă sesiunea, creditele îți sunt returnate.</p>}
         </div>
 
         <aside className="card flex h-[560px] flex-col overflow-hidden lg:h-[640px]">
