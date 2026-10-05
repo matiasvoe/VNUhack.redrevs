@@ -1,4 +1,5 @@
 import { Sigma, Atom, FlaskConical, Code2, Dna, BookOpen } from 'lucide-react';
+import { cycleEnd } from './utils.jsx';
 
 export const SESSION_COST = 25;
 export const SESSION_MINUTES = 25;
@@ -21,9 +22,9 @@ export const LEVELS = [
 ];
 
 export const PLANS = [
-  { id: 'free', name: 'Free', price: 0, credits: 50, perks: ['50 credite / lună incluse', '2 sesiuni gratuite pe lună', 'Acces la toate camerele'] },
-  { id: 'pro', name: 'Pro', price: 30, credits: 600, popular: true, perks: ['600 credite / lună', '24 de sesiuni pe lună', 'Insignă Pro în profil', 'Fără reclame în lobby'] },
-  { id: 'premium', name: 'Premium', price: 50, credits: 1000, perks: ['1000 credite / lună', '40 de sesiuni pe lună', 'Prioritate la intrarea în camere', 'Insignă Premium + notițe exportabile'] },
+  { id: 'free', name: 'Free', price: 0, credits: 50, perks: ['50 credite / lună incluse', '2 sesiuni gratuite pe lună', 'Acces la toate camerele', 'Fără flashcard-uri (doar Pro și Premium)'] },
+  { id: 'pro', name: 'Pro', price: 30, credits: 600, popular: true, perks: ['600 credite / lună', '24 de sesiuni pe lună', 'Flashcard-uri generate din notițe', 'Insignă Pro în profil'] },
+  { id: 'premium', name: 'Premium', price: 50, credits: 1000, perks: ['1000 credite / lună', '40 de sesiuni pe lună', 'Flashcard-uri nelimitate', 'Prioritate la intrarea în camere'] },
 ];
 export const CREDIT_PACKS = [
   { credits: 25, price: 6 },
@@ -85,6 +86,14 @@ const BOTS = [
   ['Sorina Barbu', 'Liceul „Dimitrie Cantemir”'],
 ];
 
+export const BOT_NAMES = BOTS.map(([n]) => n);
+export function seedRating(name) {
+  if (!BOT_NAMES.includes(name)) return null;
+  const h = [...name].reduce((a, c) => a + c.charCodeAt(0), 0);
+  const count = 10 + (h % 45);
+  return { sum: Math.round((4.2 + (h % 8) / 10) * count), count, reviews: [] };
+}
+
 let botSeq = 0;
 export function makeBot(role, grade, usedNames = []) {
   const free = BOTS.filter(([n]) => !usedNames.includes(n));
@@ -116,6 +125,7 @@ const SPEC = [
 
 export function buildRooms() {
   let n = 0;
+  const end = cycleEnd(Date.now());
   return SPEC.map(([subject, g, level, roles], idx) => {
     const grade = GRADES[g];
     const members = roles.split('').map((r) => m(n++, r === 'M' ? 'mentor' : 'learner', GRADES[Math.max(0, Math.min(3, g + (n % 2 ? 0 : -1)))]));
@@ -125,7 +135,8 @@ export function buildRooms() {
       grade,
       level,
       members,
-      startedAt: members.length >= MAX_MEMBERS ? Date.now() - 6 * 60 * 1000 : null,
+      startedAt: members.length >= MAX_MEMBERS ? end - SESSION_MINUTES * 60000 : null,
+      endsAt: members.length >= MAX_MEMBERS ? end : null,
     };
   });
 }

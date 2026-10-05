@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { Mic, MicOff, MonitorUp, MonitorOff, LogOut, Send, MessageSquare, NotebookPen, Megaphone, Crown, GraduationCap, Timer, Users, Loader2, CheckCircle2 } from 'lucide-react';
-import { CHAT_LINES, LEVELS, MAX_MEMBERS, SESSION_MINUTES, SUBJECT_ICONS } from '../data.js';
-import { Avatar, fmt, hhmm } from '../utils.jsx';
+import { Mic, MicOff, MonitorUp, MonitorOff, LogOut, Send, MessageSquare, NotebookPen, Megaphone, Crown, GraduationCap, Users, Loader2, CheckCircle2, Star } from 'lucide-react';
+import { CHAT_LINES, LEVELS, MAX_MEMBERS, SUBJECT_ICONS } from '../data.js';
+import { Avatar, Stars, hhmm } from '../utils.jsx';
+import { RatingModal, ReportModal } from './Extras.jsx';
 
 function Wave({ active }) {
   return (
@@ -55,7 +56,7 @@ function ScreenShare({ share, onStop }) {
   );
 }
 
-export default function StudyRoom({ room, now, user, onLeave, onAddBot, onUrgent, toast }) {
+export default function StudyRoom({ room, now, user, onLeave, onAddBot, onUrgent, onRate, getRating, toast }) {
   const [muted, setMuted] = useState(false);
   const [share, setShare] = useState(null);
   const [tab, setTab] = useState('chat');
@@ -66,8 +67,13 @@ export default function StudyRoom({ room, now, user, onLeave, onAddBot, onUrgent
   const [urgentSent, setUrgentSent] = useState(false);
   const endRef = useRef();
   const started = !!room.startedAt;
-  const remaining = started ? SESSION_MINUTES * 60 - (now.getTime() - room.startedAt) / 1000 : SESSION_MINUTES * 60;
-  const over = started && remaining <= 0;
+  const [forceEnd, setForceEnd] = useState(false);
+  const [rating, setRating] = useState(false);
+  const [report, setReport] = useState(false);
+  const askedRef = useRef(false);
+  const over = started && (forceEnd || now.getTime() >= room.endsAt);
+  const me = room.members.find((m) => m.id === 'me');
+  const mentorsToRate = room.members.filter((m) => m.role === 'mentor' && m.id !== 'me');
   const lvl = LEVELS[room.level - 1];
   const Icon = SUBJECT_ICONS[room.subject];
   const hasMentor = room.members.some((m) => m.role === 'mentor');
@@ -103,6 +109,9 @@ export default function StudyRoom({ room, now, user, onLeave, onAddBot, onUrgent
     return () => clearInterval(t);
   }, [started, over, room.members]);
 
+  useEffect(() => {
+    if (over && !askedRef.current && me?.role === 'learner' && mentorsToRate.length) { askedRef.current = true; setRating(true); }
+  }, [over, me, mentorsToRate.length]);
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }); }, [msgs, tab]);
   useEffect(() => { try { localStorage.setItem(`akademos_notes_${room.id}`, notes); } catch { /* ignorat */ } }, [notes, room.id]);
   useEffect(() => () => { share?.stream?.getTracks().forEach((t) => t.stop()); }, [share]);
@@ -141,23 +150,27 @@ export default function StudyRoom({ room, now, user, onLeave, onAddBot, onUrgent
           <div className="mt-1 flex flex-wrap gap-1.5"><span className="badge-lav">{room.grade}</span><span className="badge-lav">{lvl.label}</span>
             <span className="badge-lav"><Users size={11} /> {room.members.length}/{MAX_MEMBERS}</span></div>
         </div>
-        <div className={`rounded-2xl px-5 py-2 text-center ${over ? 'bg-slate-500/20' : started ? 'bg-ink text-white' : 'bg-orange-500/15 text-orange-600'}`}>
-          <p className="flex items-center justify-center gap-1 text-[11px] font-semibold uppercase tracking-wide opacity-80"><Timer size={12} /> {over ? 'Sesiune încheiată' : started ? 'Timp rămas' : 'Se formează grupul'}</p>
-          <p className="font-mono text-3xl font-extrabold tabular-nums">{started ? fmt(remaining) : '25:00'}</p>
-        </div>
+        <span className={`badge px-3 py-1.5 text-xs ${over ? 'bg-slate-500/20' : started ? 'bg-rose-500/15 text-rose-600 dark:text-rose-300' : 'bg-orange-500/15 text-orange-600'}`}>
+          {over ? 'Sesiune încheiată' : started ? 'Sesiune în desfășurare' : 'Se formează grupul'}
+        </span>
       </div>
 
       {!started && (
         <div className="flex animate-slideIn items-center gap-3 rounded-xl border border-orange-400/40 bg-orange-500/10 px-4 py-3 text-sm font-semibold text-orange-700 dark:text-orange-300">
-          <Loader2 size={18} className="animate-spin" /> Potrivire automată: se echilibrează mentori și elevi... Camera se blochează la 5 participanți și pornește cronometrul de 25 de minute.
+          <Loader2 size={18} className="animate-spin" /> Potrivire automată: se echilibrează mentori și elevi... Camera se blochează la 5 participanți sau când se închide fereastra de intrare (:05 / :35).
         </div>
       )}
       {started && !over && (
-        <div className="flex items-center gap-2 rounded-xl border border-rose-400/40 bg-rose-500/10 px-4 py-2 text-sm font-semibold text-rose-600 dark:text-rose-300">🔴 Cameră Blocată - Sesiune în desfășurare (25 min)</div>
+        <div className="flex items-center gap-2 rounded-xl border border-rose-400/40 bg-rose-500/10 px-4 py-2 text-sm font-semibold text-rose-600 dark:text-rose-300">🔴 Cameră Blocată - Sesiune în desfășurare (25 min)
+          <button onClick={() => setForceEnd(true)} className="ml-auto text-[11px] font-medium underline opacity-70 hover:opacity-100">Demo: încheie sesiunea acum</button></div>
       )}
       {over && (
         <div className="flex animate-pop items-center gap-3 rounded-xl border border-emerald-400/40 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-700 dark:text-emerald-300">
-          <CheckCircle2 size={18} /> Sesiunea s-a încheiat. Mulțumim pentru implicare! <button onClick={onLeave} className="btn-primary ml-auto !py-1.5">Închide camera</button>
+          <CheckCircle2 size={18} /> Sesiunea s-a încheiat. Mulțumim pentru implicare!
+          <span className="ml-auto flex gap-2">
+            {me?.role === 'learner' && mentorsToRate.length > 0 && <button onClick={() => setRating(true)} className="btn-ghost !py-1.5"><Star size={15} /> Evaluează Mentorul</button>}
+            <button onClick={onLeave} className="btn-primary !py-1.5">Închide camera</button>
+          </span>
         </div>
       )}
 
@@ -170,7 +183,7 @@ export default function StudyRoom({ room, now, user, onLeave, onAddBot, onUrgent
                 <Avatar name={m.id === 'me' ? user.name : m.name} size="h-16 w-16" text="text-xl" ring={speaker === m.id ? 'ring-4 ring-emerald-400/60' : ''} />
                 <p className="mt-2 max-w-full truncate text-sm font-bold">{m.id === 'me' ? `${user.name} (Tu)` : m.name}</p>
                 {m.role === 'mentor'
-                  ? <span className="badge mt-1 bg-amber-400/25 text-amber-300"><Crown size={11} /> Mentor</span>
+                  ? <><span className="badge mt-1 bg-amber-400/25 text-amber-300"><Crown size={11} /> Mentor</span><Stars rating={getRating(m.name)} className="mt-1" /></>
                   : <span className="badge mt-1 bg-lav/25 text-lav"><GraduationCap size={11} /> Elev</span>}
                 <p className="mt-1 text-[11px] text-white/50">{m.grade}</p>
                 <div className="mt-2 flex items-center gap-2">
@@ -188,6 +201,7 @@ export default function StudyRoom({ room, now, user, onLeave, onAddBot, onUrgent
           <div className="card flex flex-wrap items-center justify-center gap-3 p-4">
             <button onClick={() => setMuted(!muted)} className={muted ? 'btn-danger' : 'btn-ghost'}>{muted ? <MicOff size={18} /> : <Mic size={18} />} {muted ? 'Activează Microfonul' : 'Mute Microfon'}</button>
             <button onClick={startShare} className={share ? 'btn-primary' : 'btn-ghost'} disabled={!started || over}>{share ? <MonitorOff size={18} /> : <MonitorUp size={18} />} {share ? 'Oprește Partajarea' : 'Partajează Ecranul'}</button>
+            <button onClick={() => setReport(true)} className="btn bg-amber-400 font-extrabold text-ink shadow-md shadow-amber-400/30 hover:bg-amber-300">🚨 Raportează</button>
             <button onClick={onLeave} className="btn-danger"><LogOut size={18} /> Părăsește Sesiunea</button>
           </div>
           {!started && <p className="text-center text-xs text-ink/50 dark:text-slate-500">Partajarea ecranului se activează la începutul sesiunii. Dacă pleci acum, creditele îți sunt returnate.</p>}
@@ -242,6 +256,10 @@ export default function StudyRoom({ room, now, user, onLeave, onAddBot, onUrgent
           )}
         </aside>
       </div>
+      {rating && <RatingModal mentors={mentorsToRate} getRating={getRating} onClose={() => setRating(false)}
+        onSubmit={(l) => { onRate(l); setRating(false); toast('Mulțumim pentru evaluare!'); }} />}
+      {report && <ReportModal members={room.members} onClose={() => setReport(false)}
+        onSubmit={() => { setReport(false); toast('Raportul a fost trimis echipei de moderare. Mulțumim!'); }} />}
     </div>
   );
 }

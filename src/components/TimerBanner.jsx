@@ -1,39 +1,46 @@
 import { Clock, FlaskConical } from 'lucide-react';
 import { entryInfo, fmt } from '../utils.jsx';
 
-export default function TimerBanner({ now, demo, setDemo }) {
-  const { open, secToNext, secToClose, closeLabel } = entryInfo(now, demo);
-  const real = entryInfo(now, false);
+// Singurul cronometru global al aplicației: ciclu de 30 min (:00–:05 intrare, :05–:30 sesiune blocată)
+export default function GlobalTimer({ now, demo, setDemo, inRoom }) {
+  const c = entryInfo(now, false);
+  const entry = c.open;
+  const secs = entry ? c.secToClose : c.secToNext;
+  const pos = (now.getMinutes() % 30) * 60 + now.getSeconds();
+  const label = entry ? 'Intrarea se închide în' : inRoom ? 'Sesiunea se încheie în' : 'Următoarea intrare în';
   return (
-    <section className="card animate-fadeUp overflow-hidden">
-      <div className="flex flex-col gap-4 p-5 md:flex-row md:items-center md:justify-between">
-        <div className="flex items-center gap-4">
-          <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-ink text-lav"><Clock size={26} /></div>
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-ink/60 dark:text-slate-400">
-              {real.open ? 'Fereastra de intrare se închide în' : 'Următoarea sesiune începe în'}
-            </p>
-            <p className="font-mono text-4xl font-extrabold tabular-nums text-blurple">
-              {fmt(real.open ? real.secToClose : secToNext)}
-            </p>
+    <div className="border-t border-white/10 bg-[#15123A]">
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-5 gap-y-2 px-4 py-2.5">
+        <div className="flex items-center gap-3">
+          <Clock size={20} className="text-lav" />
+          <div className="leading-tight">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-white/60">{label}</p>
+            <p className={`font-mono text-2xl font-extrabold tabular-nums ${entry ? 'text-emerald-300' : 'text-lav'}`}>{fmt(secs)}</p>
           </div>
         </div>
-        <div className="flex-1 md:max-w-xl">
-          {open ? (
-            <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3 text-sm font-semibold text-emerald-700 dark:text-emerald-300">
-              🟢 INTRAREA DESCHISĂ! Te poți alătura unei camere acum (Până la {demo && !real.open ? ':05 / :35' : closeLabel})
-            </div>
+        <div className="min-w-0 flex-1 basis-64 text-xs font-semibold sm:text-sm">
+          {entry ? (
+            <span className="inline-block rounded-lg bg-emerald-500/15 px-3 py-1.5 text-emerald-300">
+              🟢 INTRAREA DESCHISĂ! Te poți alătura unei camere acum (Până la {c.closeLabel})
+            </span>
+          ) : inRoom ? (
+            <span className="inline-block rounded-lg bg-rose-500/15 px-3 py-1.5 text-rose-300">
+              🔒 Sesiune în desfășurare — lucru intens, fără întreruperi, până la {c.nextLabel}
+            </span>
           ) : (
-            <div className="rounded-xl border border-orange-500/40 bg-orange-500/10 p-3 text-sm font-semibold text-orange-700 dark:text-orange-300">
+            <span className="inline-block rounded-lg bg-orange-500/15 px-3 py-1.5 text-orange-300">
               ⏳ Următoarea sesiune începe la fix / jumătate. Caută o cameră și pregătește-te!
-            </div>
+            </span>
           )}
-          <label className="mt-2 flex cursor-pointer items-center gap-2 text-xs text-ink/60 dark:text-slate-400">
-            <input type="checkbox" checked={demo} onChange={(e) => setDemo(e.target.checked)} className="accent-blurple" />
-            <FlaskConical size={13} /> Mod demonstrație: forțează fereastra de intrare deschisă
-          </label>
         </div>
+        <label className="flex cursor-pointer items-center gap-1.5 text-[11px] text-white/60">
+          <input type="checkbox" checked={demo} onChange={(e) => setDemo(e.target.checked)} className="accent-blurple" />
+          <FlaskConical size={12} /> Mod demonstrație (intrare permisă oricând)
+        </label>
       </div>
-    </section>
+      <div className="h-1 bg-white/10">
+        <div className={`h-full transition-all ${entry ? 'bg-emerald-400' : 'bg-lav/70'}`} style={{ width: `${(pos / 1800) * 100}%` }} />
+      </div>
+    </div>
   );
 }

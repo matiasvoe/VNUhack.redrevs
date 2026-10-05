@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Users, Lock, Megaphone, Crown, GraduationCap, ArrowRight, Filter, ExternalLink, Sparkles } from 'lucide-react';
 import { ADS, GRADES, LEVELS, MAX_MEMBERS, SUBJECTS, SUBJECT_ICONS, SESSION_COST } from '../data.js';
-import { Avatar, entryInfo } from '../utils.jsx';
+import { Avatar, Stars, entryInfo } from '../utils.jsx';
 
 export function AdBanner() {
   const [i, setI] = useState(0);
@@ -30,7 +30,7 @@ export function AdBanner() {
   );
 }
 
-function RoomCard({ room, open, mine, onJoin, urgent }) {
+function RoomCard({ room, open, mine, onJoin, urgent, getRating }) {
   const Icon = SUBJECT_ICONS[room.subject];
   const full = room.members.length >= MAX_MEMBERS;
   const empty = room.members.length === 0;
@@ -54,6 +54,7 @@ function RoomCard({ room, open, mine, onJoin, urgent }) {
           <div key={m.id} className="flex items-center gap-2 text-sm">
             <Avatar name={m.name} size="h-6 w-6" text="text-[10px]" />
             <span className="truncate">{m.id === 'me' ? 'Tu' : m.name}</span>
+            {m.role === 'mentor' && <Stars rating={getRating(m.name)} />}
             {m.role === 'mentor'
               ? <span className="badge ml-auto bg-amber-400/20 text-amber-700 dark:text-amber-300"><Crown size={11} /> Mentor</span>
               : <span className="badge ml-auto bg-lav/30 text-ink dark:bg-lav/20 dark:text-lav"><GraduationCap size={11} /> Elev</span>}
@@ -95,7 +96,7 @@ const Select = ({ label, value, onChange, options }) => (
   </label>
 );
 
-export default function Lobby({ rooms, alerts, now, demo, onJoin, activeRoomId, user }) {
+export default function Lobby({ rooms, alerts, now, demo, onJoin, activeRoomId, user, getRating }) {
   const [f, setF] = useState({ subject: '', grade: '', level: '' });
   const [onlyOpen, setOnlyOpen] = useState(false);
   const { open } = entryInfo(now, demo);
@@ -148,7 +149,7 @@ export default function Lobby({ rooms, alerts, now, demo, onJoin, activeRoomId, 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {list.map((r) => (
             <RoomCard key={r.id} room={r} open={open} mine={r.id === activeRoomId} onJoin={() => onJoin(r)}
-              urgent={alerts.some((a) => a.roomId === r.id)} />
+              urgent={alerts.some((a) => a.roomId === r.id)} getRating={getRating} />
           ))}
         </div>
       )}

@@ -1,10 +1,12 @@
 import { useState } from 'react';
+import GlobalTimer from './TimerBanner.jsx';
 import { GraduationCap, Moon, Sun, Wallet, Plus, User, LogIn, Menu, X } from 'lucide-react';
 
-export default function Header({ view, setView, dark, setDark, user, onLogin, onPlans, inRoom }) {
+export default function Header({ view, setView, dark, setDark, user, onLogin, onPlans, inRoom, now, demo, setDemo }) {
   const [open, setOpen] = useState(false);
   const links = [
     ['rooms', 'Camere Live'],
+    ['flashcards', 'Flashcard-uri'],
     ['about', 'Despre Noi'],
     ['profile', 'Profilul Meu'],
   ];
@@ -20,7 +22,7 @@ export default function Header({ view, setView, dark, setDark, user, onLogin, on
           {links.map(([id, label]) => (
             <button key={id} onClick={() => go(id)}
               className={`rounded-lg px-3 py-2 text-sm font-medium transition ${view === id || (id === 'rooms' && view === 'room') ? 'bg-white/15' : 'text-white/70 hover:bg-white/10 hover:text-white'}`}>
-              {label}
+              {label}{id === 'flashcards' && <span className="ml-1.5 rounded bg-blurple px-1 text-[9px] font-extrabold">PRO</span>}
             </button>
           ))}
         </nav>
@@ -50,6 +52,7 @@ export default function Header({ view, setView, dark, setDark, user, onLogin, on
           </button>
         </div>
       </div>
+      <GlobalTimer now={now} demo={demo} setDemo={setDemo} inRoom={inRoom} />
       {open && (
         <nav className="animate-fadeUp border-t border-white/10 px-4 pb-3 md:hidden">
           {links.map(([id, label]) => (

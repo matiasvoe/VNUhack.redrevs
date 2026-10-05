@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Star } from 'lucide-react';
 
 export function useNow(interval = 1000) {
   const [now, setNow] = useState(() => new Date());
@@ -55,3 +56,21 @@ export function Avatar({ name = '?', size = 'h-10 w-10', text = 'text-sm', ring 
 }
 
 export const gradeShort = (g) => g.replace('Clasa a ', 'a ').replace('-a', '-a');
+
+// Sfârșitul ciclului de 30 de minute (:00 / :30) care urmează momentului `ms`
+export function cycleEnd(ms) {
+  const d = new Date(ms);
+  d.setSeconds(0, 0);
+  if (d.getMinutes() < 30) d.setMinutes(30);
+  else { d.setHours(d.getHours() + 1); d.setMinutes(0); }
+  return d.getTime();
+}
+
+export function Stars({ rating, className = '' }) {
+  if (!rating) return <span className={`text-[11px] text-ink/40 dark:text-slate-500 ${className}`}>Fără evaluări</span>;
+  return (
+    <span className={`inline-flex items-center gap-0.5 text-[11px] font-bold text-amber-500 ${className}`} title={`${rating.avg.toFixed(1)} din 5 (${rating.count} evaluări)`}>
+      <Star size={11} className="fill-amber-400" /> {rating.avg.toFixed(1)} <span className="font-medium opacity-60">({rating.count})</span>
+    </span>
+  );
+}

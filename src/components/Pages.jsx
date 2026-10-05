@@ -1,7 +1,7 @@
 import { ArrowDown, BadgeCheck, Coins, Crown, GraduationCap, Handshake, LogOut, Save, ShieldCheck, Timer, Users, Wallet, Lock, Mic } from 'lucide-react';
 import { useState } from 'react';
 import { GRADES, SESSION_COST, SUBJECTS, SUBJECT_ICONS, PLANS } from '../data.js';
-import { Avatar } from '../utils.jsx';
+import { Avatar, Stars } from '../utils.jsx';
 
 export function Hero({ onStart, onLogin, user }) {
   return (
@@ -38,8 +38,7 @@ export function AboutView({ onStart }) {
     <div className="animate-fadeUp space-y-8">
       <div className="card p-8 text-center">
         <span className="badge-lav">Despre Noi</span>
-        <h1 className="mt-3 text-3xl font-extrabold">Fii „intermediarul” cunoașterii</h1>
-        <p className="mx-auto mt-3 max-w-2xl text-ink/70 dark:text-slate-300">Credem că cei mai buni profesori pentru un elev sunt adesea colegii lui. Akademos transformă pregătirea pentru BAC și olimpiade într-un efort comun, la ore fixe, fără haos.</p>
+        <p className="mx-auto mt-4 max-w-2xl text-lg leading-relaxed text-ink/80 dark:text-slate-200">Akademos conectează elevii pentru sesiuni de studiu colaborativ structurate în cicluri eficiente de 30 de minute: primele 5 minute sunt destinate conectării și organizării grupelor de maxim 5 persoane, urmate de 25 de minute de lucru intens fără întreruperi.</p>
       </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {steps.map(([I, t, d]) => (
@@ -90,7 +89,7 @@ function SkillPicker({ title, hint, value, onChange, verified, onVerify, mentor 
   );
 }
 
-export function ProfileView({ user, onSave, onLogout, onLogin, onVerify, onPlans }) {
+export function ProfileView({ rating, user, onSave, onLogout, onLogin, onVerify, onPlans }) {
   const [d, setD] = useState(user ? { name: user.name, school: user.school, grade: user.grade, strong: user.strong, weak: user.weak } : null);
   const [saved, setSaved] = useState(false);
   if (!user) {
@@ -115,6 +114,7 @@ export function ProfileView({ user, onSave, onLogout, onLogin, onVerify, onPlans
           <div className="mt-2 flex flex-wrap gap-2">
             <span className="badge-lav">Plan {plan?.name}</span>
             {user.verified.map((s) => <span key={s} className="badge bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"><Crown size={11} /> Mentor Verificat · {s}</span>)}
+            {user.verified.length > 0 && <span className="badge bg-amber-400/15 py-1 text-xs">Evaluare mentor: <Stars rating={rating} className="!text-xs" /></span>}
           </div>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
